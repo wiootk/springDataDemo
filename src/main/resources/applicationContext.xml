@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop" xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xmlns:jpa="http://www.springframework.org/schema/data/jpa" xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:jdbc="http://www.springframework.org/schema/jdbc"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans-4.2.xsd
+       http://www.springframework.org/schema/context
+       http://www.springframework.org/schema/context/spring-context-4.2.xsd
+       http://www.springframework.org/schema/aop
+       http://www.springframework.org/schema/aop/spring-aop-4.2.xsd
+       http://www.springframework.org/schema/mvc
+       http://www.springframework.org/schema/mvc/spring-mvc-4.2.xsd http://www.springframework.org/schema/data/jpa http://www.springframework.org/schema/data/jpa/spring-jpa.xsd http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd http://www.springframework.org/schema/jdbc http://www.springframework.org/schema/jdbc/spring-jdbc.xsd">
+
+
+
+
+    <!-- 开启IOC注解扫描 -->
+    <context:component-scan base-package="com.jun">
+        <!-- 排除@controller由springmvc扫描-->
+        <context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+    </context:component-scan>
+
+
+
+    <!-- 数据库连接 -->
+    <context:property-placeholder location="classpath:jdbc.properties,classpath:/h2.properties,classpath:jdbc2.properties" ignore-unresolvable="true"/>
+    <!-- 数据源 -->
+<!--    <bean id="dataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+        <property name="driverClassName" value="${jdbc.driver}"/>
+        <property name="url" value="${jdbc.url}"/>
+        <property name="username" value="${jdbc.username}"/>
+        <property name="password" value="${jdbc.password}"/>
+    </bean>-->
+<!--    <bean  id="dataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+        <property name="driverClassName" value="${h2.driver}"/>
+        <property name="url" value="${h2.url}"/>
+        <property name="username" value="${h2.username}"/>
+        <property name="password" value="${h2.password}"/>
+    </bean>-->
+
+    <bean id="mysqlDataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource" primary="true">
+        <property name="driverClassName" value="${jdbc.driver}"/>
+        <property name="url" value="${jdbc.url}"/>
+        <property name="username" value="${jdbc.username}"/>
+        <property name="password" value="${jdbc.password}"/>
+    </bean>
+
+    <bean id="mysql2DataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource" primary="true">
+        <property name="driverClassName" value="${jdbc2.driver}"/>
+        <property name="url" value="${jdbc2.url}"/>
+        <property name="username" value="${jdbc2.username}"/>
+        <property name="password" value="${jdbc2.password}"/>
+    </bean>
+    <bean  id="h2DataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+        <property name="driverClassName" value="${h2.driver}"/>
+        <property name="url" value="${h2.url}"/>
+        <property name="username" value="${h2.username}"/>
+        <property name="password" value="${h2.password}"/>
+    </bean>
+
+    <bean id="dataSource" class="com.jun.util.DynamicDataSource">
+        <property name="targetDataSources">
+            <map key-type="java.lang.String">
+                <entry key="mysql" value-ref="mysqlDataSource"/>
+                <entry key="mysql2" value-ref="mysql2DataSource"/>
+                <entry key="h2" value-ref="h2DataSource"/>
+            </map>
+        </property>
+        <property name="defaultTargetDataSource" ref="mysqlDataSource"/>
+    </bean>
+
+    <!--  mysql数据源-->
+    <bean id="dataSourceMysql" class="com.jun.util.DynamicDataSource">
+        <property name="targetDataSources">
+            <map key-type="java.lang.String">
+                <entry key="mysql" value-ref="mysqlDataSource"/>
+                <entry key="mysql2" value-ref="mysql2DataSource"/>
+            </map>
+        </property>
+        <property name="defaultTargetDataSource" ref="mysqlDataSource"/>
+    </bean>
+
+
+
+    <bean id="manyDataSourceAspect" class="com.jun.util.DataSourceAspect" />
+    <aop:config>
+        <aop:aspect id="c" ref="manyDataSourceAspect">
+            <aop:pointcut id="tx" expression="execution(* com.jun.dao.*.*(..))"/>
+            <aop:before pointcut-ref="tx" method="before"/>
+        </aop:aspect>
+    </aop:config>
+
+
+
+    <!-- 初始化数据表结构 -->
+    <jdbc:initialize-database data-source="h2DataSource" ignore-failures="ALL">
+        <jdbc:script location="classpath:h2/H2_TYPE.sql"/>
+        <jdbc:script location="classpath:h2/import-data.sql" encoding="UTF-8"/>
+    </jdbc:initialize-database>
+
+
+    <!-- JPA实体管理器工厂 -->
+    <!--<bean id="entityManagerFactory"
+          class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+        <property name="dataSource" ref="dataSource"/>
+        <property name="jpaVendorAdapter" ref="hibernateVendor"/>
+        <property name="packagesToScan" value="com.jun.entity"/>
+        <property name="jpaProperties">
+            <props>
+                <prop key="hibernate.current_session_context_class">thread</prop>
+                <prop key="hibernate.hbm2ddl.auto">update</prop>&lt;!&ndash; validate/update/create &ndash;&gt;
+                <prop key="hibernate.show_sql">false</prop>
+                <prop key="hibernate.format_sql">false</prop>
+                &lt;!&ndash; 建表的命名规则 &ndash;&gt;
+                <prop key="hibernate.ejb.naming_strategy">org.hibernate.cfg.ImprovedNamingStrategy</prop>
+                &lt;!&ndash; 定义延迟加载&ndash;&gt;
+                <prop key="hibernate.enable_lazy_load_no_trans">false</prop>
+                &lt;!&ndash; 不检查设置默认值 可能是JDK版本或者数据库驱动版本的问题，设置为true会报错 &ndash;&gt;
+                <prop key="hibernate.temp.use_jdbc_metadata_defaults">false</prop>
+                &lt;!&ndash; 缓存配置 &ndash;&gt;
+                <prop key="cache.use_second_level_cache">true</prop>&lt;!&ndash; 启用二级缓存 &ndash;&gt;
+                <prop key="hibernate.cache.use_query_cache">true</prop>&lt;!&ndash; 启用查询缓存 &ndash;&gt;
+                <prop key="hibernate.cache.region.factory_class">org.hibernate.cache.ehcache.EhCacheRegionFactory</prop>
+            </props>
+        </property>
+    </bean>
+    <bean id="hibernateVendor" class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
+        <property name="databasePlatform" value="${hibernate.dialect}"/>
+        <property name="generateDdl" value="true"/>
+        <property name="database" value="MYSQL"/>
+    </bean>
+    &lt;!&ndash; 设置JPA实现厂商的特定属性 &ndash;&gt;
+    <bean id="hibernateJpaVendorAdapter" class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter"/>
+    &lt;!&ndash; Jpa 事务配置 &ndash;&gt;
+    <bean id="transactionManager" class="org.springframework.orm.jpa.JpaTransactionManager">
+        <property name="entityManagerFactory" ref="entityManagerFactory"/>
+    </bean>
+    &lt;!&ndash; Spring Data Jpa配置 &ndash;&gt;
+&lt;!&ndash;    <jpa:repositories base-package="com.jun.dao" transaction-manager-ref="transactionManager"
+                      entity-manager-factory-ref="entityManagerFactory"/>&ndash;&gt;
+    <jpa:repositories
+            factory-class="com.jun.util.MyRepoFactoryBean"
+            transaction-manager-ref="transactionManager"
+            entity-manager-factory-ref="entityManagerFactory" base-package="com.jun.dao" />
+
+
+    &lt;!&ndash; 使用annotation定义事务 &ndash;&gt;
+    <tx:annotation-driven transaction-manager="transactionManager" proxy-target-class="true"/>-->
+
+    <!-- JPA实体管理器工厂 -->
+    <bean id="mysqlEntityManagerFactory"
+          class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+        <property name="dataSource" ref="dataSourceMysql"/>
+        <property name="jpaVendorAdapter" ref="mysqlHibernateVendor"/>
+        <property name="packagesToScan" value="com.jun.entity"/>
+        <property name="jpaProperties">
+            <props>
+                <prop key="hibernate.current_session_context_class">thread</prop>
+                <prop key="hibernate.hbm2ddl.auto">update</prop><!-- validate/update/create -->
+                <prop key="hibernate.show_sql">false</prop>
+                <prop key="hibernate.format_sql">false</prop>
+                <!-- 建表的命名规则 -->
+                <prop key="hibernate.ejb.naming_strategy">org.hibernate.cfg.ImprovedNamingStrategy</prop>
+                <!-- 定义延迟加载-->
+                <prop key="hibernate.enable_lazy_load_no_trans">false</prop>
+            </props>
+        </property>
+    </bean>
+
+    <bean id="h2EntityManagerFactory"
+          class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+        <property name="dataSource" ref="h2DataSource"/>
+        <property name="jpaVendorAdapter" ref="h2HibernateVendor"/>
+        <property name="packagesToScan" value="com.jun.entity"/>
+        <property name="jpaProperties">
+            <props>
+                <prop key="hibernate.current_session_context_class">thread</prop>
+                <prop key="hibernate.hbm2ddl.auto">update</prop><!-- validate/update/create -->
+                <prop key="hibernate.show_sql">false</prop>
+                <prop key="hibernate.format_sql">false</prop>
+                <!-- 建表的命名规则 -->
+                <prop key="hibernate.ejb.naming_strategy">org.hibernate.cfg.ImprovedNamingStrategy</prop>
+                <!-- 定义延迟加载-->
+                <prop key="hibernate.enable_lazy_load_no_trans">false</prop>
+            </props>
+        </property>
+    </bean>
+    <!-- 设置JPA实现厂商的特定属性 -->
+    <bean id="mysqlHibernateVendor" class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
+        <property name="databasePlatform" value="${hibernate.dialect}"/>
+        <property name="generateDdl" value="true"/>
+        <property name="database" value="MYSQL"/>
+    </bean>
+    <bean id="h2HibernateVendor" class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
+        <property name="databasePlatform" value="${h2hibernate.dialect}"/>
+        <property name="generateDdl" value="true"/>
+        <property name="database" value="H2"/>
+    </bean>
+    <!-- Jpa 事务配置 -->
+    <bean id="transactionManager" class="org.springframework.orm.jpa.JpaTransactionManager">
+        <property name="entityManagerFactory" ref="mysqlEntityManagerFactory"/>
+    </bean>
+    <bean id="H2transactionManager" class="org.springframework.orm.jpa.JpaTransactionManager">
+        <property name="entityManagerFactory" ref="h2EntityManagerFactory"/>
+    </bean>
+    <!-- Spring Data Jpa配置 -->
+    <jpa:repositories factory-class="com.jun.util.MyRepoFactoryBean" base-package="com.jun.dao"
+                      transaction-manager-ref="transactionManager" entity-manager-factory-ref="mysqlEntityManagerFactory"/>
+    <jpa:repositories factory-class="com.jun.util.MyRepoFactoryBean" base-package="com.jun.daoH2"
+                      transaction-manager-ref="H2transactionManager" entity-manager-factory-ref="h2EntityManagerFactory"/>
+    <!-- 使用annotation定义事务 -->
+    <tx:annotation-driven transaction-manager="transactionManager" proxy-target-class="true"/>
+
+
+
+
+
+    <!--    &lt;!&ndash; 事务 &ndash;&gt;
+        <tx:advice id="txAdvice" transaction-manager="transactionManager">
+            <tx:attributes>
+                <tx:method name="*" />
+                <tx:method name="get*" read-only="true" />
+                <tx:method name="find*" read-only="true" />
+                <tx:method name="select*" read-only="true" />
+                <tx:method name="delete*" propagation="REQUIRED" />
+                <tx:method name="update*" propagation="REQUIRED" />
+                <tx:method name="add*" propagation="REQUIRED" />
+                <tx:method name="insert*" propagation="REQUIRED" />
+            </tx:attributes>
+        </tx:advice>
+        &lt;!&ndash; 事务入口 &ndash;&gt;
+        <aop:config>
+            <aop:pointcut id="allServiceMethod" expression="execution(* your service implements package.*.*(..))" />
+            <aop:advisor pointcut-ref="allServiceMethod" advice-ref="txAdvice" />
+        </aop:config>-->
+    </beans>

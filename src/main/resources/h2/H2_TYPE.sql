@@ -1,0 +1,12 @@
+SET MODE MySQL;
+-- 兼容模式DB2、Derby、HSQLDB、MSSQLServer、MySQL、Oracle、PostgreSQL
+-- SET AUTO_RECONNECT=TRUE;
+-- --连接丢失后自动重新连接
+-- SET AUTO_SERVER=TRUE;
+-- --允许开启多个连接，该参数不支持在内存中运行模式
+--  SET TRACE_LEVEL_SYSTEM_OUT=2;
+-- --输出跟踪日志到控制台
+-- SET TRACE_LEVEL_FILE=2;
+-- --输出日志到文件，0:OFF，1（默认）:ERROR，2:INFO，3:DEBUG
+-- SET TRACE_MAX_FILE_SIZE=16;
+-- --设置跟踪日志文件的大小，默认为16M
